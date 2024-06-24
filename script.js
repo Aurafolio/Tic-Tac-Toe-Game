@@ -8,9 +8,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const cells = document.querySelectorAll('.cell');
     const message = document.querySelector('.message');
     const resetButton = document.getElementById('reset');
+    const modeSelector = document.getElementById('mode');
 
     let currentPlayer = 'X';
     let gameActive = true;
+    let gameMode = 'easy';
     const gameState = Array(9).fill('');
 
     const winningConditions = [
@@ -24,6 +26,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     resetButton.addEventListener('click', resetGame);
+    modeSelector.addEventListener('change', (e) => {
+        gameMode = e.target.value;
+        resetGame();
+    });
 
     function handleCellClick(event) {
         const cellIndex = event.target.getAttribute('data-index');
@@ -34,6 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         gameState[cellIndex] = currentPlayer;
         event.target.textContent = currentPlayer;
+        event.target.classList.add(currentPlayer === 'X' ? 'user' : 'bot');
 
         if (checkWinner()) {
             message.textContent = `Player ${currentPlayer} wins!`;
@@ -45,18 +52,30 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
-        message.textContent = `Player ${currentPlayer}'s turn`;
-
-        if (currentPlayer === 'O' && gameActive) {
+        if (gameMode === 'two-player') {
+            currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+            message.textContent = `Player ${currentPlayer}'s turn`;
+        } else {
+            currentPlayer = 'O';
+            message.textContent = `Player ${currentPlayer}'s turn`;
             setTimeout(botMove, 500);
         }
     }
 
     function botMove() {
-        let bestMove = minimax(gameState, BOT_NAME === 'AURAFOLIO BOT' ? 'O' : 'X');
-        gameState[bestMove.index] = currentPlayer;
-        document.querySelector(`.cell[data-index='${bestMove.index}']`).textContent = currentPlayer;
+        let bestMove;
+        if (gameMode === 'easy') {
+            bestMove = easyMove();
+        } else if (gameMode === 'medium') {
+            bestMove = mediumMove();
+        } else {
+            bestMove = minimax(gameState, 'O').index;
+        }
+
+        gameState[bestMove] = currentPlayer;
+        const cell = document.querySelector(`.cell[data-index='${bestMove}']`);
+        cell.textContent = currentPlayer;
+        cell.classList.add('bot');
 
         if (checkWinner()) {
             message.textContent = `Player ${currentPlayer} wins!`;
@@ -68,12 +87,45 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+        currentPlayer = 'X';
         message.textContent = `Player ${currentPlayer}'s turn`;
     }
 
+    function easyMove() {
+        const availableMoves = gameState
+            .map((cell, index) => (cell === '' ? index : null))
+            .filter(index => index !== null);
+        return availableMoves[Math.floor(Math.random() * availableMoves.length)];
+    }
+
+    function mediumMove() {
+        // Simple AI logic for medium difficulty
+        // Try to win or block, otherwise random move
+        for (let condition of winningConditions) {
+            const [a, b, c] = condition;
+            if (gameState[a] === 'O' && gameState[b] === 'O' && gameState[c] === '')
+                return c;
+            if (gameState[a] === 'O' && gameState[c] === 'O' && gameState[b] === '')
+                return b;
+            if (gameState[b] === 'O' && gameState[c] === 'O' && gameState[a] === '')
+                return a;
+        }
+        for (let condition of winningConditions) {
+            const [a, b, c] = condition;
+            if (gameState[a] === 'X' && gameState[b] === 'X' && gameState[c] === '')
+                return c;
+            if (gameState[a] === 'X' && gameState[c] === 'X' && gameState[b] === '')
+                return b;
+            if (gameState[b] === 'X' && gameState[c] === 'X' && gameState[a] === '')
+                return a;
+        }
+        return easyMove();
+    }
+
     function minimax(newGameState, player) {
-        const availSpots = newGameState.map((cell, index) => cell === '' ? index : null).filter(index => index !== null);
+        const availSpots = newGameState
+            .map((cell, index) => (cell === '' ? index : null))
+            .filter(index => index !== null);
 
         if (checkWin(newGameState, 'X')) {
             return { score: -10 };
@@ -137,7 +189,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function resetGame() {
         gameState.fill('');
-        cells.forEach(cell => cell.textContent = '');
+        cells.forEach(cell => {
+            cell.textContent = '';
+            cell.classList.remove('user', 'bot');
+        });
         currentPlayer = 'X';
         gameActive = true;
         message.textContent = `Player ${currentPlayer}'s turn`;
